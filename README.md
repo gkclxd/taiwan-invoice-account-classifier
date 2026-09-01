@@ -1,2 +1,16 @@
-# taiwan-invoice-account-classifier
-An explainable, vector-based accounting classification engine for Taiwan e-invoices, with personalized learning and tax compliance risk checks.以向量模型、公司個人化修正與稅務合規風險控制為核心的台灣電子發票會計科目分類系統。
+# Hi, I'm Your Name
+
+## Featured Project
+
+### Taiwan Invoice Account Classifier
+
+A hybrid vector-based accounting classification and tax-risk review engine for Taiwan e-invoice data.
+
+- Python
+- NLP
+- Vector similarity
+- Incremental personalization
+- Tax compliance rules
+- Automated testing
+
+[View project](https://github.com/YOUR_USERNAME/taiwan-invoice-account-classifier)
