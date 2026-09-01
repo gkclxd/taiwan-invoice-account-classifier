@@ -1,0 +1,131 @@
+{
+  "version": "1.1",
+  "last_updated": "2026-09-01",
+  "description": "台灣稅法合規規則庫（發票摘要 → 稅務風險 → 合規規則）。本系統為稅務輔助與風險提示工具，不構成稅務或法律意見；任何高風險或分歧判斷之結果，均建議轉人工覆核，並由企業會計/稅務顧問最終確認。本檔案整合自模組 M4-1（規則庫＋詳盡法規說明文字）與 M5-1（fusion_engine.py 實際依賴之 dict 結構），規則 2、規則 6 之科目代碼分歧已於該規則 resolution_note 欄位說明整合判斷理由。",
+  "rules": {
+    "RULE_001_input_tax_separation": {
+      "rule_id": "RULE_001_input_tax_separation",
+      "trigger_keywords": [
+        "稅",
+        "營業稅",
+        "VAT",
+        "5%"
+      ],
+      "trigger_condition": null,
+      "preferred_account": "1268",
+      "forbidden_accounts": [
+        "5121",
+        "5122",
+        "6100"
+      ],
+      "weight": 0.9,
+      "penalty": 1.0,
+      "note": "《加值型及非加值型營業稅法》第 15 條、第 19 條：進項稅額（5% 加值型營業稅）必須單獨列為資產科目「1268 進項稅額」，不可併入進貨成本或費用科目一併認列，否則將導致進項稅額重複列支、虛增成本。違反本規則時置信度降為 0（極高風險，強制人工複核）。",
+      "law_reference": "加值型及非加值型營業稅法 第15條、第19條",
+      "effective_date": "2026-08-31",
+      "scope": "所有列載營業稅（5%加值型營業稅／VAT）字樣之進項發票",
+      "manual_review_required": "一旦觸發，一律建議轉人工覆核（本規則違反時風險等級為 critical）"
+    },
+    "RULE_002_cif_freight_no_duplicate": {
+      "rule_id": "RULE_002_cif_freight_no_duplicate",
+      "trigger_keywords": [
+        "運費",
+        "保險費"
+      ],
+      "trigger_condition": "CIF",
+      "preferred_account": "5122",
+      "forbidden_accounts": [
+        "5221",
+        "5222"
+      ],
+      "weight": 0.8,
+      "penalty": 0.8,
+      "note": "《營利事業所得稅查核準則》第 44 條：CIF（Cost, Insurance and Freight）貿易條件下，運費及保險費已內含於貨物價格（Invoice 金額）之中，若發票摘要另列「運費」「保險費」字樣，應視為已含於進貨成本，不可再單獨以「5221 運費」「5222 保險費」重複列報，否則構成費用重複認列。違反本規則時原預測置信度降低 80%（高風險，建議併入 5122 進貨費用或請賣方確認貿易條件）。",
+      "law_reference": "營利事業所得稅查核準則 第44條",
+      "effective_date": "2026-08-31",
+      "scope": "貿易條件為 CIF 之進口發票，且摘要列有運費或保險費字樣者",
+      "manual_review_required": "觸發且預測科目落入 forbidden_accounts 時，建議轉人工覆核",
+      "resolution_note": "此為專案整合時的判斷版本：原始 M5-1 dict 中 preferred_account=5121、forbidden_accounts=[5131,5132] 與 M4-1 版本（preferred_account=5122、forbidden_accounts=[5221,5222]）不一致，且 5131/5132 並非《商業會計科目表》account_subjects.csv 中的真實科目代碼。整合時採用 M4-1 版本（5122 進貨費用；forbidden：5221 運費、5222 保險費），因其與現行科目表及風險評分器邏輯一致。實際科目代碼應由企業會計/稅務顧問覆核後採用。"
+    },
+    "RULE_003_customs_fee_into_cost": {
+      "rule_id": "RULE_003_customs_fee_into_cost",
+      "trigger_keywords": [
+        "報關費",
+        "通關費",
+        "Customs"
+      ],
+      "trigger_condition": null,
+      "preferred_account": "5122",
+      "forbidden_accounts": [],
+      "weight": 0.7,
+      "penalty": 0.3,
+      "note": "《營所稅查核準則》第37條：報關費為取得進貨之必要費用，應併入進貨成本（5121或5122）。",
+      "law_reference": "營利事業所得稅查核準則 第37條",
+      "effective_date": "2026-08-31",
+      "scope": "列有報關費、通關費字樣之進口相關發票",
+      "manual_review_required": "觸發後 confidence 明顯偏低（<0.5）時建議人工覆核"
+    },
+    "RULE_004_entertainment_expense_cap": {
+      "rule_id": "RULE_004_entertainment_expense_cap",
+      "trigger_keywords": [
+        "交際",
+        "應酬",
+        "宴客",
+        "送禮"
+      ],
+      "trigger_condition": null,
+      "preferred_account": "5213",
+      "forbidden_accounts": [],
+      "weight": 0.6,
+      "penalty": 0.2,
+      "note": "《營利事業所得稅查核準則》第 62 條：交際應酬費之列支有上限規定，一般以全年進貨、銷貨或營業收入淨額按其規模採累進費率（約 1.5‰–2‰ 上下，實際比率依查核準則規定之收入級距而定）計算列支限額，超過部分於申報營利事業所得稅時應自行剔除，不得認列為費用。系統應標記本類發票需檢查累計金額是否已逼近或超過限額（AMOUNT_CHECK），提示使用者留意全年度累計數。",
+      "law_reference": "營利事業所得稅查核準則 第62條",
+      "effective_date": "2026-08-31",
+      "scope": "列有交際、應酬、宴客、送禮等字樣之發票，需搭配全年累計金額覆核",
+      "manual_review_required": "全年累計交際費金額接近或超過法定列支上限時，建議轉人工覆核"
+    },
+    "RULE_005_employee_welfare_vs_entertainment": {
+      "rule_id": "RULE_005_employee_welfare_vs_entertainment",
+      "trigger_keywords": [
+        "員工",
+        "旅遊",
+        "聚餐",
+        "尾牙"
+      ],
+      "trigger_condition": null,
+      "preferred_account": "5226",
+      "forbidden_accounts": [
+        "5213"
+      ],
+      "weight": 0.7,
+      "penalty": 0.5,
+      "note": "《營利事業所得稅查核準則》第 81 條：員工旅遊、聚餐、尾牙等支出之受益對象為公司內部員工，而非外部客戶或業務往來對象，性質上屬於「職工福利」而非對外交際應酬，應列為「5226 職工福利」科目，不得誤列為「5213 交際費」（交際費有列支上限，職工福利費亦有限額但認定基礎不同，誤列將導致稅務認定錯誤）。",
+      "law_reference": "營利事業所得稅查核準則 第81條",
+      "effective_date": "2026-08-31",
+      "scope": "列有員工、旅遊、聚餐、尾牙等字樣、受益對象為公司內部員工之發票",
+      "manual_review_required": "觸發且原預測為 5213（交際費）時，建議轉人工覆核以確認受益對象"
+    },
+    "RULE_006_passenger_car_input_tax_not_deductible": {
+      "rule_id": "RULE_006_passenger_car_input_tax_not_deductible",
+      "trigger_keywords": [
+        "汽車",
+        "乘人",
+        "轎車",
+        "自用車"
+      ],
+      "trigger_condition": null,
+      "preferred_account": null,
+      "forbidden_accounts": [
+        "1268"
+      ],
+      "weight": 0.8,
+      "penalty": 0.8,
+      "note": "《營業稅法》第19條：自用乘人小汽車的進項稅額不得扣抵銷項稅額，禁止科目1268。",
+      "law_reference": "加值型及非加值型營業稅法 第19條",
+      "effective_date": "2026-08-31",
+      "scope": "列有汽車、乘人、轎車、自用車等字樣，疑似自用乘人小汽車之發票",
+      "manual_review_required": "觸發後一律建議轉人工覆核，不得由系統自動認定為扣抵或不可扣抵",
+      "resolution_note": "此為專案整合時的判斷版本：原始 M5-1 dict 建議 preferred_account=2441（該代碼未見於 account_subjects.csv，且無法確認其科目名稱與性質），M4-1 版本則將 preferred_account 設為 null（本規則性質為禁止/否決性，僅明確禁止列入 1268 進項稅額扣抵，不主動建議單一正面科目）。整合時採用 M4-1 版本，避免系統在未確認實際交易情境下自動代入未經驗證的科目代碼。實際應轉列之資產/費用科目（如交通運輸設備）應由企業會計/稅務顧問依實際購車性質覆核後決定。"
+    }
+  }
+}

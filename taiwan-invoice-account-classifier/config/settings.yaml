@@ -1,0 +1,64 @@
+# 台灣電子發票會計科目分類系統 — 系統設定
+#
+# 本系統為「稅務輔助與風險提示工具」，不構成稅務或法律意見。
+# 本檔案設定值僅為預設參考值，企業應依自身業務性質調整
+# fusion_weights 分組與 storage 備份頻率等設定。
+
+master_model:
+  embedding_backend: tfidf_svd     # tfidf_svd（預設，完全離線）| sentence_transformer | auto
+  # embedding_backend=auto 時：優先嘗試連線 huggingface.co 下載 Sentence Transformer，
+  # 若網路環境無法連線，自動改用完全離線的 tfidf_svd 後端（jieba 分詞 + TF-IDF + SVD）。
+  sentence_transformer_model: paraphrase-multilingual-MiniLM-L12-v2
+  embedding_dim: 384
+  cross_validation_folds: 5
+  random_state: 42
+  model_path: models/master_model.pkl
+  vectorizer_path: models/master_model_vectorizer.pkl
+  # 本 repo 不含任何已訓練模型或訓練資料；training_data_path 僅為預設路徑慣例，
+  # 使用者需自行準備符合格式的訓練資料（見 docs/ 說明），不得使用真實客戶資料
+  # 於公開 repo 中提交。
+  training_data_path: data/training/your_own_training_data.csv
+  max_training_minutes: 30
+  max_model_size_mb: 500
+
+# 四來源動態加權融合權重（alpha=母版模型, beta=客戶修正, gamma=賣方偏好, delta=稅法合規）。
+# 依公司類型分四組預設值，企業可依 CompanyProfile.compliance_weight 動態調整 delta，
+# 系統會自動等比例縮放 alpha/beta/gamma 以維持總和為 1（見 classifier.py _rebalance_weights）。
+fusion_weights:
+  startup:        {alpha: 0.6, beta: 0.2, gamma: 0.0, delta: 0.2}   # 新創公司：交易模式尚未穩定，倚重母版模型
+  sme:            {alpha: 0.5, beta: 0.2, gamma: 0.1, delta: 0.2}   # 一般中小企業：預設平衡配置
+  import_export:  {alpha: 0.4, beta: 0.2, gamma: 0.1, delta: 0.3}   # 進出口貿易：CIF/FOB 等合規情境較多，提高 delta
+  listed_company: {alpha: 0.3, beta: 0.2, gamma: 0.1, delta: 0.4}   # 上市櫃公司：合規要求較高，delta 權重最高
+
+# 修正紀錄儲存、版本控制、備份、審計設定（整合自 M5-2 + M6-2）
+storage:
+  data_dir: ./data/corrections
+  backup_frequency: daily
+  max_backups: 10          # CorrectionStore 即時備份保留份數
+  max_versions_kept: 10    # VersionControl 版本保留數量
+  versions_dir: ./data/corrections/versions
+
+backup:
+  enabled: true
+  backup_root: ./backups
+  schedule_time: "02:00"   # 每日備份執行時間（本機時區，24 小時制 HH:MM）
+  frequency: daily
+  retention_days: 30       # 超過此天數的備份會被自動清除
+  async_mode: true         # 正式環境建議 true（不阻塞主流程）；單元測試可設 false 以同步驗證
+  max_worker_threads: 4
+
+audit:
+  enabled: true
+  log_dir: ./data/audit
+  rotate_monthly: false    # 是否依月份分檔（audit_log_202608.jsonl）
+  format: jsonl            # 純文字格式，逐行 JSON，方便人工閱讀與 grep 查詢
+
+# 稅務風險評估相關門檻（對應 tax_compliance.py 的內建預設值；
+# 若企業有更嚴謹或寬鬆的內控要求，可自行調整並於程式碼中改為讀取本設定）
+risk_thresholds:
+  low_confidence_threshold: 0.6   # 低於此置信度視為信心不足，建議人工判斷
+  risk_level_score_thresholds:
+    critical: 0.7
+    high: 0.5
+    medium: 0.3
+    low: 0.0
